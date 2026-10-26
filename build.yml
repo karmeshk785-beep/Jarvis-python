@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
 
@@ -26,18 +26,17 @@ jobs:
     - name: Build with Buildozer
       run: |
         export PATH=$PATH:$HOME/.local/bin
+        cp maya.py main.py
         buildozer init
-        # Yahan maine basic setting daali hai
         sed -i 's/#android.permissions = INTERNET/android.permissions = INTERNET,RECORD_AUDIO/' buildozer.spec
         sed -i 's/#title = My Application/title = Maya Assistant/' buildozer.spec
         sed -i 's/#package.name = myapp/package.name = mayaapp/' buildozer.spec
         sed -i 's/#package.domain = org.test/package.domain = org.tilak/' buildozer.spec
-        sed -i 's/#source.dir = ./source.dir = ./' buildozer.spec
-        sed -i 's/#requirements = python3,kivy/requirements = python3,kivy,pyjnius/' buildozer.spec
         buildozer -v android debug
 
     - name: Upload APK
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: maya-apk
         path: bin/*.apk
+
