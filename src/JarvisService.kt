@@ -1,5 +1,4 @@
-package com.jarvis.app
-
+package com.jarvis.ap
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -21,7 +20,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
-import android.speech.tts.UtteranceProgressListener
+import android.speech.ttgressListener
 import android.view.WindowManager
 import org.json.JSONArray
 import org.json.JSONObject
@@ -335,43 +334,6 @@ class JarvisService : Service(), RecognitionListener {
                 c.connectTimeout = 20000
                 c.readTimeout = 40000
                 c.doOutput = true
-                c.setRequestProperty("Content-Type", "application/json")
-                c.setRequestProperty("Authorization", "Bearer " + key)
-                c.setRequestProperty("User-Agent", "Mozilla/5.0")
-                c.outputStream.use { it.write(body.toString().toByteArray()) }
-                val code = c.responseCode
-                if (code != 200) {
-                    ans = "Dost, Groq ne error diya " + code
-                } else {
-                    val txt = c.inputStream.bufferedReader().readText()
-                    ans = JSONObject(txt).getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content").trim()
-                    hist.put(JSONObject().put("role", "assistant").put("content", ans))
-                }
-            } catch (e: Exception) {
-                ans = "Dost, internet ya key mein dikkat hai"
-            }
-            ui.post { reply(ans) }
-        }.start()
-    }
-
-    private fun reply(a: String) {
-        while (hist.length() > 12) hist.remove(0)
-        val i = a.indexOf("\u0060\u0060\u0060")
-        if (i >= 0) {
-            Bus.log("Code:\n" + a)
-            speak(a.substring(0, i).trim() + " Code screen par likha hai.")
-        } else {
-            speak(a)
-        }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        Bus.running = false
-        Bus.mode = 0
-        hideGlow()
-        stopListening()
-        tts?.shutdown()
-        Bus.log("Jarvis band ho gaya.")
+                c.setRequestProperty("Content-Type", "application/json)
     }
 }
