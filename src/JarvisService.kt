@@ -239,5 +239,4 @@ class JarvisService : Service() {
         stopVosk()
         tts?.shutdown()
         Bus.log("Jarvis band ho gaya.")
-    }
-}private val wake = listOf("jarvis", "jarvish", "jarwis", "jervis", "jarves", "harvis", "jarvi", "service", "travis")    private val wake = listOf("hello", "helo", "hallo", "jarvis", "jarvish", "jarwis", "jervis", "jarves", "harvis", "jarvi", "service", "travis")
+    }    private val wake = listOf("hello", "helo", "hallo", "jarvis", "jarvish", "jarwis", "jervis", "jarves", "harvis", "jarvi", "service", "travis")}private val wake = listOf("jarvis", ...
