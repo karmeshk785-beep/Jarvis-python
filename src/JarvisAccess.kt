@@ -52,13 +52,59 @@ object Phone {
     }
 
     fun handle(ctx: Context, w: String): String? {
-        val unlock = has(w, "unlock", "अनलॉक", "lock khol", "lock hata", "लॉक खोल", "लॉक हटा", "mobile khol", "phone khol", "screen on", "screen chalu")
-        val lock = !unlock && has(w, "lock karo", "lock kar do", "lock kar", "mobile lock", "phone lock", "screen lock", "लॉक कर", "screen band", "स्क्रीन बंद")
-        val home = has(w, "home jao", "home screen", "होम जाओ", "होम स्क्रीन")
-        val back = has(w, "peeche jao", "pichhe jao", "back karo", "wapas jao", "पीछे जाओ", "वापस जाओ")
-        val recents = has(w, "recent apps", "recent app", "रीसेंट")
-        val shot = has(w, "screenshot", "स्क्रीनशॉट")
-        val shade = has(w, "notification bar", "नोटिफिकेशन बार")
-        val down = has(w, "neeche scroll", "niche scroll", "scroll down", "next video", "agla video", "नीचे स्क्रॉल", "अगला वीडियो")
-        val up = has(w, "upar scroll", "ooper scroll", "scroll up", "pichla video", "पिछला वीडियो", "ऊपर स्क्रॉल")
-        if (!(unlock || lock || home || back || recents || shot || shade || down || up)) r
+        val unlock = has(w, "unlock", "lock khol", "lock hata", "mobile khol", "phone khol", "screen on", "screen chalu")
+        val lock = !unlock && has(w, "lock karo", "lock kar do", "lock kar", "mobile lock", "phone lock", "screen lock", "screen band")
+        val home = has(w, "home jao", "home screen")
+        val back = has(w, "peeche jao", "pichhe jao", "back karo", "wapas jao")
+        val recents = has(w, "recent apps", "recent app")
+        val shot = has(w, "screenshot")
+        val shade = has(w, "notification bar")
+        val down = has(w, "neeche scroll", "niche scroll", "scroll down", "next video", "agla video")
+        val up = has(w, "upar scroll", "ooper scroll", "scroll up", "pichla video")
+        if (!(unlock || lock || home || back || recents || shot || shade || down || up)) return null
+        if (unlock) {
+            wake(ctx)
+            Handler(Looper.getMainLooper()).postDelayed({ swipe(ctx, 0.5f, 0.85f, 0.5f, 0.2f, 350) }, 1200)
+            return "Ji dost, screen chalu kar raha hoon. Agar PIN ya pattern laga hai toh wo nahi khulega"
+        }
+        val s = svc
+        if (s == null) {
+            val i = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            ctx.startActivity(i)
+            return "Accessibility mein Jarvis ko ON karo, phir dobara bolo"
+        }
+        if (lock) {
+            if (Build.VERSION.SDK_INT < 28) return "Is phone par lock nahi ho sakta"
+            s.performGlobalAction(AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN)
+            return "Theek hai dost, phone lock kar diya"
+        }
+        if (home) {
+            s.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
+            return "Home par aa gaya"
+        }
+        if (back) {
+            s.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
+            return "Peeche aa gaya"
+        }
+        if (recents) {
+            s.performGlobalAction(AccessibilityService.GLOBAL_ACTION_RECENTS)
+            return "Recent apps khol diye"
+        }
+        if (shade) {
+            s.performGlobalAction(AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS)
+            return "Notification bar khol diya"
+        }
+        if (shot) {
+            if (Build.VERSION.SDK_INT < 28) return "Is phone par screenshot nahi ho sakta"
+            s.performGlobalAction(AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT)
+            return "Screenshot le liya"
+        }
+        if (down) {
+            swipe(ctx, 0.5f, 0.75f, 0.5f, 0.25f, 300)
+            return "Neeche kar diya"
+        }
+        swipe(ctx, 0.5f, 0.25f, 0.5f, 0.75f, 300)
+        return "Upar kar diya"
+    }
+}
