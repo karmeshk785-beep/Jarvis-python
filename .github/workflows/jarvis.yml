@@ -109,8 +109,8 @@ jobs:
           S='<service android:name=".JarvisAccess" android:exported="true" android:label="Jarvis" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"><intent-filter><action android:name="android.accessibilityservice.AccessibilityService"/></intent-filter><meta-data android:name="android.accessibilityservice" android:resource="@xml/jarvis_access"/></service>'
           sed -i "s#</application>#${S}</application>#" app/src/main/AndroidManifest.xml
           mkdir -p app/src/main/assets
-          if curl -fsSL -o /tmp/m.zip https://alphacephei.com/vosk/models/vosk-model-small-en-in-0.4.zip; then
-            unzip -q /tmp/m.zip -d /tmp/mdl && mv /tmp/mdl/vosk-model-small-en-in-0.4 app/src/main/assets/model-en-in && echo jarvis-model-1 > app/src/main/assets/model-en-in/uuid
+          if curl -fsSL -o /tmp/m.zip https://github.com/karmeshk785-beep/Jarvis-python/releases/download/model-hi/model-hi.zip; then
+            unzip -q /tmp/m.zip -d /tmp/mdl && mv /tmp/mdl/model-hi app/src/main/assets/model-en-in && echo jarvis-model-1 > app/src/main/assets/model-en-in/uuid
           fi
       - name: APK banao
         working-directory: japp
