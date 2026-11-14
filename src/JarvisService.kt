@@ -65,7 +65,7 @@ class JarvisService : Service() {
                 return START_NOT_STICKY
             }
             Bus.running = true
-            Bus.log("Jarvis chal raha hai. Shuru mein hello ya Jarvis bolo.")
+            Bus.log("Jarvis chal raha hai 24 ghante. Jarvis ya hello bolo.")
             initTts()
             showGlow()
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -81,13 +81,13 @@ class JarvisService : Service() {
             StorageService.unpack(this, "model-en-in", "model", { m: Model ->
                 voskModel = m
                 voskReady = true
-                Bus.log("Offline mic taiyaar hai. Hello bolo.")
+                Bus.log("Mic 24 ghante taiyaar hai. Jarvis bolo.")
                 startVosk()
             }, { _: IOException ->
-                Bus.log("Offline mic model load nahi hua")
+                Bus.log("Model load nahi hua")
             })
         } catch (e: Exception) {
-            Bus.log("Offline mic model load nahi hua")
+            Bus.log("Model load nahi hua")
         }
     }
 
@@ -108,25 +108,16 @@ class JarvisService : Service() {
                 override fun onFinalResult(h: String?) {}
                 override fun onError(e: Exception?) {
                     ui.post {
-                        stopVosk()
-                        ui.postDelayed({ startVosk() }, 1500)
+                        vosk = null
+                        startVosk()
                     }
                 }
                 override fun onTimeout() {}
             })
         } catch (e: Exception) {
             vosk = null
-            Bus.log("Offline mic shuru nahi hua")
+            ui.postDelayed({ startVosk() }, 500)
         }
-    }
-
-    private fun stopVosk() {
-        try {
-            vosk?.stop()
-            vosk?.shutdown()
-        } catch (e: Exception) {
-        }
-        vosk = null
     }
 
     private fun check(h: String?) {
@@ -137,12 +128,12 @@ class JarvisService : Service() {
             if (t.isNotBlank()) Bus.log("Suna: " + t.trim())
             if (wake.any { t.contains(it) }) {
                 awakePending = true
-                stopVosk()
                 Bus.log("Ji? Boliye...")
-                ui.postDelayed({
-                    awakePending = false
-                    startVosk()
-                }, 2500)
+                try {
+                    ToneGenerator(AudioManager.STREAM_MUSIC, 70).startTone(ToneGenerator.TONE_PROP_ACK, 150)
+                } catch (e: Exception) {
+                }
+                ui.postDelayed({ awakePending = false }, 1500)
             }
         } catch (e: Exception) {
         }
@@ -152,13 +143,19 @@ class JarvisService : Service() {
         tts = TextToSpeech(this) { st ->
             if (st == TextToSpeech.SUCCESS) {
                 tts!!.setLanguage(Locale("hi", "IN"))
+                tts!!.setAudioAttributes(
+                    android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build()
+                )
                 tts!!.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(id: String?) {}
                     override fun onError(id: String?) {}
                     override fun onDone(id: String?) {}
                 })
                 ttsReady = true
-                speak("Namaste mere dost, main Jarvis hoon. Mujhe bulane ke liye hello bolo")
+                speak("Namaste mere dost, main Jarvis hoon, chaubees ghante taiyaar")
             }
         }
     }
@@ -166,7 +163,9 @@ class JarvisService : Service() {
     private fun speak(t: String) {
         Bus.log("Jarvis: " + t)
         if (!ttsReady) return
-        tts!!.speak(t, TextToSpeech.QUEUE_FLUSH, null, "u" + System.currentTimeMillis())
+        val p = android.os.Bundle()
+        p.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 0.4f)
+        tts!!.speak(t, TextToSpeech.QUEUE_FLUSH, p, "u" + System.currentTimeMillis())
     }
 
     private fun showGlow() {
@@ -203,7 +202,7 @@ class JarvisService : Service() {
             nb = Notification.Builder(this)
         }
         nb.setContentTitle("Jarvis chal raha hai")
-        nb.setContentText("Hello bolke bulao.")
+        nb.setContentText("Jarvis bolke bulao.")
         nb.setSmallIcon(android.R.drawable.ic_btn_speak_now)
         nb.setContentIntent(pi)
         val n = nb.build()
@@ -223,7 +222,11 @@ class JarvisService : Service() {
         } catch (e: Exception) {
         }
         hideGlow()
-        stopVosk()
+        try {
+            vosk?.stop()
+            vosk?.shutdown()
+        } catch (e: Exception) {
+        }
         tts?.shutdown()
         Bus.log("Jarvis band ho gaya.")
     }
