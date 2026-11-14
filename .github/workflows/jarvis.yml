@@ -109,9 +109,25 @@ jobs:
           S='<service android:name=".JarvisAccess" android:exported="true" android:label="Jarvis" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"><intent-filter><action android:name="android.accessibilityservice.AccessibilityService"/></intent-filter><meta-data android:name="android.accessibilityservice" android:resource="@xml/jarvis_access"/></service>'
           sed -i "s#</application>#${S}</application>#" app/src/main/AndroidManifest.xml
           mkdir -p app/src/main/assets
-          if curl -fsSL -o /tmp/m.zip https://github.com/karmeshk785-beep/Jarvis-python/releases/download/model-hi/model-hi.zip; then
-            unzip -q /tmp/m.zip -d /tmp/mdl && mv /tmp/mdl/model-hi app/src/main/assets/model-en-in && echo jarvis-model-1 > app/src/main/assets/model-en-in/uuid
+          set +e
+          curl -fsSL -o /tmp/m.zip https://github.com/karmeshk785-beep/Jarvis-python/releases/download/model-hi/model-hi.zip
+          if [ -s /tmp/m.zip ]; then
+            rm -rf /tmp/mdl
+            mkdir -p /tmp/mdl
+            unzip -q /tmp/m.zip -d /tmp/mdl
+            SRC=$(find /tmp/mdl -maxdepth 3 -type d -name am | sed 's#/am$##' | head -1)
+            if [ -n "$SRC" ]; then
+              mkdir -p app/src/main/assets/model-en-in
+              cp -r "$SRC"/. app/src/main/assets/model-en-in/
+              echo jarvis-model-1 > app/src/main/assets/model-en-in/uuid
+              echo "Hindi model laga diya"
+            else
+              echo "Model ke andar am folder nahi mila, APK bina Hindi model ke banega"
+            fi
+          else
+            echo "Model download nahi hua, APK bina Hindi model ke banega"
           fi
+          set -e
       - name: APK banao
         working-directory: japp
         run: gradle assembleDebug --no-daemon
