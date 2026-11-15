@@ -11,6 +11,8 @@ import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
 import android.media.AudioManager
 import android.media.ToneGenerator
+import android.net.Uri
+import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -21,8 +23,14 @@ import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.view.WindowManager
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import org.vosk.Model
 import org.vosk.android.SpeechService
@@ -45,14 +53,19 @@ object Bus {
 class JarvisService : Service() {
     private var tts: TextToSpeech? = null
     private var ttsReady = false
+    private var closing = false
     private var glow: EdgeGlow? = null
     private var wl: PowerManager.WakeLock? = null
     private var voskModel: Model? = null
     private var vosk: SpeechService? = null
     private var voskReady = false
-    private var awakePending = false
+    private var awake = false
+    private var busyUntil = 0L
     private val ui = Handler(Looper.getMainLooper())
-    private val wake = listOf("hello", "helo", "hallo", "jarvis", "jarvish", "jarwis", "jervis", "jarves", "harvis", "jarvi", "service", "travis")
+    private val hist = JSONArray()
+    private val wake = listOf("hello", "helo", "hallo", "jarvis", "jarvish", "jarwis", "jervis", "jarves", "harvis", "jarvi", "service", "travis", "हेलो", "हैलो", "जार्विस", "जारविस")
+    private val stop = setOf("youtube", "yutube", "pe", "par", "per", "search", "karo", "kro", "kar", "ka", "ke", "ki", "open", "khol", "kholo", "dhundo", "play", "chalao", "mein", "me", "store", "app", "यूट्यूब", "पर", "पे", "सर्च", "करो", "खोलो", "चलाओ")
+    private val SYS = "Tum Jarvis ho, mere dost jaise ek voice assistant, jo Android phone par 24 ghante chalta hai. Hamesha Hinglish (Roman letters) mein pyaar aur apnepan se baat karo. Jawab chhote rakho, 2 ya 3 vaakya. Meri feeling samjho. Jab main udaas ho ya dard bhari baat karun toh dil ko chhoone wala halka dardila shayari jaisa andaaz rakho. Jab shayari maangun toh 4 line ki shayari sunao. Coding poochu toh pehle saral shabdon mein samjhao, phir code do."
 
     override fun onBind(i: Intent?): IBinder? = null
 
@@ -65,6 +78,7 @@ class JarvisService : Service() {
                 return START_NOT_STICKY
             }
             Bus.running = true
+            closing = false
             Bus.log("Jarvis chal raha hai 24 ghante. Jarvis ya hello bolo.")
             initTts()
             showGlow()
@@ -99,19 +113,23 @@ class JarvisService : Service() {
             vosk = ss
             Bus.mode = 1
             ss.startListening(object : VListener {
-                override fun onPartialResult(h: String?) {
-                    check(h)
-                }
+                override fun onPartialResult(h: String?) {}
+
                 override fun onResult(h: String?) {
-                    check(h)
+                    heard(h)
                 }
-                override fun onFinalResult(h: String?) {}
+
+                override fun onFinalResult(h: String?) {
+                    heard(h)
+                }
+
                 override fun onError(e: Exception?) {
                     ui.post {
                         vosk = null
                         startVosk()
                     }
                 }
+
                 override fun onTimeout() {}
             })
         } catch (e: Exception) {
@@ -120,23 +138,153 @@ class JarvisService : Service() {
         }
     }
 
-    private fun check(h: String?) {
-        if (h == null || awakePending) return
+    private fun heard(h: String?) {
+        if (h == null) return
         try {
             val j = JSONObject(h)
-            val t = (j.optString("partial", "") + " " + j.optString("text", "")).lowercase()
-            if (t.isNotBlank()) Bus.log("Suna: " + t.trim())
-            if (wake.any { t.contains(it) }) {
-                awakePending = true
-                Bus.log("Ji? Boliye...")
-                try {
-                    ToneGenerator(AudioManager.STREAM_MUSIC, 70).startTone(ToneGenerator.TONE_PROP_ACK, 150)
-                } catch (e: Exception) {
-                }
-                ui.postDelayed({ awakePending = false }, 1500)
+            val t = j.optString("text", "").trim().lowercase()
+            if (t.isEmpty()) return
+            if (System.currentTimeMillis() < busyUntil) {
+                Bus.log("(Jarvis bol raha tha, ignore) " + t)
+                return
             }
+            Bus.log("Suna: " + t)
+            handle(t)
         } catch (e: Exception) {
         }
+    }
+
+    private fun has(s: String, vararg k: String): Boolean {
+        return k.any { s.contains(it) }
+    }
+
+    private fun clean(s: String): String {
+        return s.split(" ").filter { it.isNotEmpty() && !stop.contains(it) }.joinToString(" ")
+    }
+
+    private fun open(u: String) {
+        try {
+            val i = Intent(Intent.ACTION_VIEW, Uri.parse(u))
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(i)
+        } catch (e: Exception) {
+            Bus.log("App nahi khul payi")
+        }
+    }
+
+    private fun handle(raw: String) {
+        var w = raw
+        val wasAwake = awake
+        awake = false
+        val hitWake = wake.any { w.contains(it) }
+        if (!wasAwake && !hitWake) return
+        if (hitWake) {
+            for (x in wake) w = w.replace(x, "")
+        }
+        w = w.trim()
+        if (w.isEmpty()) {
+            awake = true
+            Bus.log("Ji? Boliye...")
+            try {
+                ToneGenerator(AudioManager.STREAM_MUSIC, 70).startTone(ToneGenerator.TONE_PROP_ACK, 150)
+            } catch (e: Exception) {
+            }
+            ui.postDelayed({ awake = false }, 8000)
+            return
+        }
+        val sk = Skills.handle(this, w, tts)
+        if (sk != null) {
+            speak(sk)
+            return
+        }
+        when {
+            has(w, "bye", "alvida", "बाय", "अलविदा") -> {
+                closing = true
+                speak("Alvida mere dost, apna khayal rakhna")
+            }
+            has(w, "time", "samay", "टाइम", "समय", "कितने बजे") -> {
+                speak("Ji dost, abhi samay hai " + SimpleDateFormat("hh mm a", Locale.getDefault()).format(Date()))
+            }
+            has(w, "battery", "बैटरी") -> {
+                val bm = getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+                val pc = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+                speak("Dost, battery " + pc + " percent hai")
+            }
+            has(w, "youtube", "यूट्यूब") -> {
+                val s = clean(w)
+                if (s.isEmpty() || !has(w, "search", "सर्च", "play", "chalao", "dhundo", "चलाओ")) {
+                    speak("Ji dost, YouTube khol raha hoon")
+                    open("https://www.youtube.com")
+                } else {
+                    speak("Ji dost, YouTube par " + s + " dhoondh raha hoon")
+                    open("https://www.youtube.com/results?search_query=" + URLEncoder.encode(s, "UTF-8"))
+                }
+            }
+            has(w, "instagram", "इंस्टाग्राम") -> {
+                speak("Ji dost, Instagram khol raha hoon")
+                open("https://www.instagram.com")
+            }
+            has(w, "whatsapp", "व्हाट्सएप") -> {
+                speak("Ji dost, WhatsApp khol raha hoon")
+                open("https://wa.me")
+            }
+            has(w, "play store", "प्ले स्टोर") -> {
+                val s = clean(w)
+                speak("Ji dost, Play Store par " + s + " dhoondh raha hoon")
+                open("https://play.google.com/store/search?c=apps&q=" + URLEncoder.encode(s, "UTF-8"))
+            }
+            has(w, "search", "सर्च") -> {
+                val s = clean(w)
+                speak("Ji dost, " + s + " search kar raha hoon")
+                open("https://www.google.com/search?q=" + URLEncoder.encode(s, "UTF-8"))
+            }
+            else -> ai(w)
+        }
+    }
+
+    private fun ai(q: String) {
+        val key = getSharedPreferences("j", 0).getString("k", "") ?: ""
+        if (key.isEmpty()) {
+            speak("Dost, pehle settings mein Groq key save karo")
+            return
+        }
+        Bus.mode = 3
+        hist.put(JSONObject().put("role", "user").put("content", q))
+        Thread {
+            var ans = ""
+            try {
+                val msgs = JSONArray()
+                msgs.put(JSONObject().put("role", "system").put("content", SYS))
+                val st = Math.max(0, hist.length() - 8)
+                for (i in st until hist.length()) msgs.put(hist.get(i))
+                val body = JSONObject()
+                body.put("model", "openai/gpt-oss-120b")
+                body.put("messages", msgs)
+                body.put("max_tokens", 500)
+                body.put("reasoning_effort", "low")
+                val c = URL("https://api.groq.com/openai/v1/chat/completions").openConnection() as HttpURLConnection
+                c.requestMethod = "POST"
+                c.connectTimeout = 20000
+                c.readTimeout = 40000
+                c.doOutput = true
+                c.setRequestProperty("Content-Type", "application/json")
+                c.setRequestProperty("Authorization", "Bearer " + key)
+                c.setRequestProperty("User-Agent", "Mozilla/5.0")
+                c.outputStream.use { it.write(body.toString().toByteArray()) }
+                val code = c.responseCode
+                if (code != 200) {
+                    ans = "Dost, Groq ne error diya " + code
+                } else {
+                    val txt = c.inputStream.bufferedReader().readText()
+                    ans = JSONObject(txt).getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content").trim()
+                    hist.put(JSONObject().put("role", "assistant").put("content", ans))
+                    while (hist.length() > 12) hist.remove(0)
+                }
+            } catch (e: Exception) {
+                ans = "Dost, internet ya key mein dikkat hai"
+            }
+            ui.post { speak(ans.replace("*", "")) }
+        }.start()
     }
 
     private fun initTts() {
@@ -152,20 +300,28 @@ class JarvisService : Service() {
                 tts!!.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(id: String?) {}
                     override fun onError(id: String?) {}
-                    override fun onDone(id: String?) {}
+                    override fun onDone(id: String?) {
+                        if (closing) {
+                            ui.post { stopSelf() }
+                        }
+                    }
                 })
                 ttsReady = true
-                speak("Namaste mere dost, main Jarvis hoon, chaubees ghante taiyaar")
+                speak("Namaste mere dost, main Jarvis hoon, chaubees ghante taiyaar. Mujhe bulane ke liye Jarvis ya hello bolo")
             }
         }
     }
 
     private fun speak(t: String) {
-        Bus.log("Jarvis: " + t)
+        var s = t
+        if (s.length > 2000) s = s.substring(0, 2000)
+        Bus.log("Jarvis: " + s)
         if (!ttsReady) return
-        val p = android.os.Bundle()
+        val ms = (s.length * 70L) + 1200L
+        busyUntil = System.currentTimeMillis() + ms
+        val p = Bundle()
         p.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 0.4f)
-        tts!!.speak(t, TextToSpeech.QUEUE_FLUSH, p, "u" + System.currentTimeMillis())
+        tts!!.speak(s, TextToSpeech.QUEUE_FLUSH, p, "u" + System.currentTimeMillis())
     }
 
     private fun showGlow() {
