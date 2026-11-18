@@ -85,6 +85,7 @@ class JarvisService : Service() {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
             wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "jarvis:mic")
             wl!!.acquire()
+            VoiceId.start()
             initVosk()
         }
         return START_STICKY
@@ -182,6 +183,15 @@ class JarvisService : Service() {
             for (x in wake) w = w.replace(x, "")
         }
         w = w.trim()
+        if (has(w, "awaaz yaad karo", "mera awaaz yaad karo", "owner yaad karo", "awaaz yaad rakho")) {
+            VoiceId.enroll(this)
+            speak("Theek hai dost, maine tumhari awaaz yaad kar li")
+            return
+        }
+        if (VoiceId.hasOwner(this) && !VoiceId.isOwner(this)) {
+            Bus.log("(Dusri awaaz, ignore)")
+            return
+        }
         if (w.isEmpty()) {
             awake = true
             Bus.log("Ji? Boliye...")
@@ -383,6 +393,7 @@ class JarvisService : Service() {
             vosk?.shutdown()
         } catch (e: Exception) {
         }
+        VoiceId.stop()
         tts?.shutdown()
         Bus.log("Jarvis band ho gaya.")
     }
