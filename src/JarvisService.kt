@@ -118,9 +118,9 @@ class JarvisService : Service() {
 
                                 override fun onFinalResult(h: String?) {}
                 
-                }
-                override fun onFinalResult(h: String?) {
-                    heard(h)
+                
+                o
+                
                 }
 
                 override fun onError(e: Exception?) {
