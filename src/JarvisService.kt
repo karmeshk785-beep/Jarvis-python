@@ -116,10 +116,9 @@ class JarvisService : Service() {
             ss.startListening(object : VListener {
                 override fun onPartialResult(h: String?) {}
 
-                override fun onResult(h: String?) {
-                    heard(h)
+                                override fun onFinalResult(h: String?) {}
+                
                 }
-
                 override fun onFinalResult(h: String?) {
                     heard(h)
                 }
