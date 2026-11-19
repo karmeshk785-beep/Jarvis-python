@@ -301,12 +301,6 @@ class JarvisService : Service() {
         tts = TextToSpeech(this) { st ->
             if (st == TextToSpeech.SUCCESS) {
                 tts!!.setLanguage(Locale("hi", "IN"))
-                tts!!.setAudioAttributes(
-                    android.media.AudioAttributes.Builder()
-                        .setUsage(android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION)
-                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
-                        .build()
-                )
                 tts!!.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(id: String?) {}
                     override fun onError(id: String?) {}
@@ -329,9 +323,7 @@ class JarvisService : Service() {
         if (!ttsReady) return
         val ms = (s.length * 70L) + 1200L
         busyUntil = System.currentTimeMillis() + ms
-        val p = Bundle()
-        p.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 0.4f)
-        tts!!.speak(s, TextToSpeech.QUEUE_FLUSH, p, "u" + System.currentTimeMillis())
+        tts!!.speak(s, TextToSpeech.QUEUE_FLUSH, null, "u" + System.currentTimeMillis())
     }
 
     private fun showGlow() {
