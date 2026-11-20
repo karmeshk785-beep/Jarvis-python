@@ -63,7 +63,7 @@ class JarvisService : Service() {
     private var busyUntil = 0L
     private val ui = Handler(Looper.getMainLooper())
     private val hist = JSONArray()
-        private val wake = listOf("hello", "helo", "hallo", "jarvis", "jarvish", "jarwis", "jervis", "jarves", "हेलो", "हैलो", "जार्विस", "जारविस")
+    private val wake = listOf("hello", "helo", "hallo", "jarvis", "jarvish", "jarwis", "jervis", "jarves", "हेलो", "हैलो", "जार्विस", "जारविस")
     private val stop = setOf("youtube", "yutube", "pe", "par", "per", "search", "karo", "kro", "kar", "ka", "ke", "ki", "open", "khol", "kholo", "dhundo", "play", "chalao", "mein", "me", "store", "app", "यूट्यूब", "पर", "पे", "सर्च", "करो", "खोलो", "चलाओ")
     private val SYS = "Tum Jarvis ho, mere dost jaise ek voice assistant, jo Android phone par 24 ghante chalta hai. Hamesha Hinglish (Roman letters) mein pyaar aur apnepan se baat karo. Jawab chhote rakho, 2 ya 3 vaakya. Meri feeling samjho. Jab main udaas ho ya dard bhari baat karun toh dil ko chhoone wala halka dardila shayari jaisa andaaz rakho. Jab shayari maangun toh 4 line ki shayari sunao. Coding poochu toh pehle saral shabdon mein samjhao, phir code do."
 
@@ -116,12 +116,11 @@ class JarvisService : Service() {
             ss.startListening(object : VListener {
                 override fun onPartialResult(h: String?) {}
 
-                                override fun onFinalResult(h: String?) {}
-                
-                
-                o
-                
+                override fun onResult(h: String?) {
+                    heard(h)
                 }
+
+                override fun onFinalResult(h: String?) {}
 
                 override fun onError(e: Exception?) {
                     ui.post {
@@ -320,7 +319,7 @@ class JarvisService : Service() {
         if (s.length > 2000) s = s.substring(0, 2000)
         Bus.log("Jarvis: " + s)
         if (!ttsReady) return
-                val ms = (s.length * 130L) + 3000L
+        val ms = (s.length * 130L) + 3000L
         busyUntil = System.currentTimeMillis() + ms
         tts!!.speak(s, TextToSpeech.QUEUE_FLUSH, null, "u" + System.currentTimeMillis())
     }
