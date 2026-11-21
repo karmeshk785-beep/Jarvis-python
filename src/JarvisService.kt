@@ -9,12 +9,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
-import android.media.AudioManager
-import android.media.ToneGenerator
 import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
-import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -59,11 +56,9 @@ class JarvisService : Service() {
     private var voskModel: Model? = null
     private var vosk: SpeechService? = null
     private var voskReady = false
-    private var awake = false
     private var busyUntil = 0L
     private val ui = Handler(Looper.getMainLooper())
     private val hist = JSONArray()
-    private val wake = listOf("hello", "helo", "hallo", "jarvis", "jarvish", "jarwis", "jervis", "jarves", "हेलो", "हैलो", "जार्विस", "जारविस")
     private val stop = setOf("youtube", "yutube", "pe", "par", "per", "search", "karo", "kro", "kar", "ka", "ke", "ki", "open", "khol", "kholo", "dhundo", "play", "chalao", "mein", "me", "store", "app", "यूट्यूब", "पर", "पे", "सर्च", "करो", "खोलो", "चलाओ")
     private val SYS = "Tum Jarvis ho, mere dost jaise ek voice assistant, jo Android phone par 24 ghante chalta hai. Hamesha Hinglish (Roman letters) mein pyaar aur apnepan se baat karo. Jawab chhote rakho, 2 ya 3 vaakya. Meri feeling samjho. Jab main udaas ho ya dard bhari baat karun toh dil ko chhoone wala halka dardila shayari jaisa andaaz rakho. Jab shayari maangun toh 4 line ki shayari sunao. Coding poochu toh pehle saral shabdon mein samjhao, phir code do."
 
@@ -79,7 +74,7 @@ class JarvisService : Service() {
             }
             Bus.running = true
             closing = false
-            Bus.log("Jarvis chal raha hai 24 ghante. Jarvis ya hello bolo.")
+            Bus.log("Jarvis chal raha hai 24 ghante. Chahe jo bolo, sun raha hoon.")
             initTts()
             showGlow()
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -96,7 +91,7 @@ class JarvisService : Service() {
             StorageService.unpack(this, "model-en-in", "model", { m: Model ->
                 voskModel = m
                 voskReady = true
-                Bus.log("Mic 24 ghante taiyaar hai. Jarvis bolo.")
+                Bus.log("Mic 24 ghante taiyaar hai.")
                 startVosk()
             }, { _: IOException ->
                 Bus.log("Model load nahi hua")
@@ -172,15 +167,8 @@ class JarvisService : Service() {
     }
 
     private fun handle(raw: String) {
-        var w = raw
-        val wasAwake = awake
-        awake = false
-        val hitWake = wake.any { w.contains(it) }
-        if (!wasAwake && !hitWake) return
-        if (hitWake) {
-            for (x in wake) w = w.replace(x, "")
-        }
-        w = w.trim()
+        val w = raw.trim()
+        if (w.isEmpty()) return
         if (has(w, "awaaz yaad karo", "mera awaaz yaad karo", "owner yaad karo", "awaaz yaad rakho")) {
             VoiceId.enroll(this)
             speak("Theek hai dost, maine tumhari awaaz yaad kar li")
@@ -188,16 +176,6 @@ class JarvisService : Service() {
         }
         if (VoiceId.hasOwner(this) && !VoiceId.isOwner(this)) {
             Bus.log("(Dusri awaaz, ignore)")
-            return
-        }
-        if (w.isEmpty()) {
-            awake = true
-            Bus.log("Ji? Boliye...")
-            try {
-                ToneGenerator(AudioManager.STREAM_MUSIC, 70).startTone(ToneGenerator.TONE_PROP_ACK, 150)
-            } catch (e: Exception) {
-            }
-            ui.postDelayed({ awake = false }, 8000)
             return
         }
         val sk = Skills.handle(this, w, tts)
@@ -309,7 +287,7 @@ class JarvisService : Service() {
                     }
                 })
                 ttsReady = true
-                speak("Namaste mere dost, main Jarvis hoon, chaubees ghante taiyaar. Mujhe bulane ke liye Jarvis ya hello bolo")
+                speak("Namaste mere dost, main Jarvis hoon, chaubees ghante taiyaar. Jo bhi bologe, sun lunga")
             }
         }
     }
@@ -321,6 +299,18 @@ class JarvisService : Service() {
         if (!ttsReady) return
         val ms = (s.length * 130L) + 3000L
         busyUntil = System.currentTimeMillis() + ms
+        val p = getSharedPreferences("j", 0)
+        val vn = p.getString("voice", null)
+        if (vn != null) {
+            try {
+                for (v in tts!!.voices) {
+                    if (v.name == vn) tts!!.setVoice(v)
+                }
+            } catch (e: Exception) {
+            }
+        }
+        tts!!.setPitch(1.3f)
+        tts!!.setSpeechRate(0.9f)
         tts!!.speak(s, TextToSpeech.QUEUE_FLUSH, null, "u" + System.currentTimeMillis())
     }
 
@@ -358,7 +348,7 @@ class JarvisService : Service() {
             nb = Notification.Builder(this)
         }
         nb.setContentTitle("Jarvis chal raha hai")
-        nb.setContentText("Jarvis bolke bulao.")
+        nb.setContentText("Chahe jo bolo, Jarvis sun raha hai.")
         nb.setSmallIcon(android.R.drawable.ic_btn_speak_now)
         nb.setContentIntent(pi)
         val n = nb.build()
